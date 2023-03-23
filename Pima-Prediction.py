@@ -113,6 +113,7 @@ print("# rows missing insulin {0}".format(len(df.loc[df["insulin"] == 0])))
 print("# rows missing bmi {0}".format(len(df.loc[df["bmi"] == 0])))
 print("# rows missing diab_pred {0}".format(len(df.loc[df["diab_pred"] == 0])))
 print("# rows missing age {0}".format(len(df.loc[df["age"] == 0])))
+print("")
 
 #for features missing in a large number of rows, try imputing
 #you could replace with mean, median
@@ -132,3 +133,146 @@ from sklearn.naive_bayes import GaussianNB
 #create Gaussian Naive Bayes model object and train it with the data
 nb_model = GaussianNB()
 nb_model.fit(X_train, y_train.ravel())
+
+#predict values using the training data
+nb_predict_train = nb_model.predict(X_train)
+nb_predict_test = nb_model.predict(X_test)
+
+#import the performance metrics library
+from sklearn import metrics
+print("Accuracy: {0:.4f}".format(metrics.accuracy_score(y_train, nb_predict_train))) #test training data
+print("Accuracy: {0:.4f}".format(metrics.accuracy_score(y_test, nb_predict_test))) #test testing data
+print("")
+
+#Review Confusion Matrix
+print("**Confusion Matrix**")
+#left columns in printed display matrix are predicted false, right columns are predicted true
+#the rows are the actual values, top row is actual false, bottom is actual true
+""" 
+Example: TN = true negative (actual not diabetes, predicted not diabetes) |  FP = false positive (actual not diabetes, predicted to be diabetes) 
+         FN = false negative (actual diabetes, predicted not diabetes)    |  TP = true positive (actual diabetes, predicted to be diabetes)
+
+TN FP
+FN TP
+
+"""
+print("{0}".format(metrics.confusion_matrix(y_test, nb_predict_test)))
+print("")
+
+print("**Classification Report**")
+print(metrics.classification_report(y_test, nb_predict_test))
+
+#Switching to random forest algorithm to improve performance
+from sklearn.ensemble import RandomForestClassifier
+
+rf_model = RandomForestClassifier(random_state=42) #create random forest object
+rf_model.fit(X_train, y_train.ravel())
+
+rf_predict_train = rf_model.predict(X_train)
+rf_predict_test = rf_model.predict(X_test)
+
+#training metrics
+print("Accuracy: {0:.4f}".format(metrics.accuracy_score(y_train, rf_predict_train))) #measure accuracy of training data
+print("Accuracy: {0:.4f}".format(metrics.accuracy_score(y_test, rf_predict_test))) #measure accuracy of test data
+#the differences between the training data accuracy and test data accuracy is too large, this means the model has learned the training data too well
+#the above problem is known as OVERFITTING
+#**Solutions to overfitting below**
+#regularization hyperparameters can be used to reduce the accuracy on trained data, but increase it on outside data
+#cross validation
+#Sacrifice some training perfection to improve overall performance: this is known as the the bias-variance trade off
+
+print("**Classification Report**")
+print(metrics.classification_report(y_test, rf_predict_test))
+
+
+#switching to logistic regression, it works well in classification scenarios, and is simpler than radom forest
+from sklearn.linear_model import LogisticRegression
+
+lr_model = LogisticRegression(C=0.7, random_state=42)
+lr_model.fit(X_train, y_train.ravel())
+lr_predict_test = lr_model.predict(X_test)
+
+#training metrics
+print("Accuracy: {0:.4f}".format(metrics.accuracy_score(y_test, lr_predict_test))) #measure accuracy of training data
+
+print("**Classification Report**")
+print(metrics.classification_report(y_test, lr_predict_test))
+#recall score is still too low
+
+#class imbalances can influence results, if there aren't enough positive results in the data set or there are too many even
+#Add a balance weight hyperparameter
+
+
+#loop through training to find best C value
+#Add in class_weight = "balanced" hyperparameter to account for influenced results
+C_start = 0.1
+C_end = 5
+C_inc = 0.1
+C_values, recall_scores = [], []
+
+C_val = C_start
+best_recall_score = 0
+while (C_val < C_end):
+    C_values.append(C_val)
+    lr_model_loop = LogisticRegression(C=C_val, class_weight = "balanced", random_state=42)
+    lr_model_loop.fit(X_train,y_train.ravel())
+    lr_predict_loop_test = lr_model_loop.predict(X_test)
+    recall_score = metrics.recall_score(y_test, lr_predict_loop_test)
+    recall_scores.append(recall_score)
+    if (recall_score > best_recall_score):
+        best_recall_score = recall_score
+        best_lr_predict_test = lr_predict_loop_test
+
+    C_val = C_val + C_inc
+                       
+#matplotlib visualization, works in jupyter
+
+best_score_C_val = C_values[recall_scores.index(best_recall_score)]
+print("First max value of {0:.3f} occured at C={1:.3f}".format(best_recall_score, best_score_C_val))
+
+plt.plot(C_values, recall_scores, "-")
+plt.xlabel("C value")
+plt.ylabel("recall score")
+
+#now that we found the best C value, replace in C
+
+lr_model = LogisticRegression(class_weight="balanced", C=best_score_C_val, random_state = 42)
+lr_model.fit(X_train, y_train.ravel())
+lr_predict_test = lr_model.predict(X_test)
+
+print("**Classification Report**")
+print(metrics.classification_report(y_test, lr_predict_test))
+
+#Recall value is 0.71 for True (1) now, this passes the minimum 70% set in my question
+#still needs tuning, as the regularization value was balanced based on the test data
+#try cross validation, specifically K-fold Cross validation
+    #this splits the training data into a number of folds, with one assigned to validate, each fold is used to validate one at a time
+
+    #psuedo code for this
+
+    #for each fold
+        #determine best hyperparameter value
+    
+    #Set model hyperparameter value to average best
+
+#alg + Cross validation = algCV (naming convention when using cross validation)
+
+#**Logistic Regression with cross validation**
+from sklearn.linear_model import LogisticRegressionCV
+lr_cv_model = LogisticRegressionCV(n_jobs=-1, random_state=42, Cs = 3, cv = 10, refit = False, class_weight="balanced")
+"""
+n_jobs = number cores to use in our system
+Cs = the number of values it will try, trying to find the best value for the regularization parameter for each fold
+cv = number of folds
+"""
+lr_cv_model.fit(X_train, y_train.ravel())
+lr_cv_predict_test = lr_cv_model.predict(X_test)
+
+#training metrics
+print("Accuracy: {0:.4f}".format(metrics.accuracy_score(y_test, lr_cv_predict_test))) #measure accuracy of training data
+print(metrics.confusion_matrix(y_test, lr_cv_predict_test))
+print("")
+print("**Classification Report**")
+print(metrics.classification_report(y_test, lr_cv_predict_test))
+
+#the cross validation drops our recall score on test data, but likely improves scores on real world data
