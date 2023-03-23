@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 #Load and review data
-df = pd.read_csv("C:\\Users\\Will-Meister\\Desktop\\Projects\\MachineLearningIntro\\CourseRepoFiles\\MachineLearningWithPython-master\\Notebooks\\data\\pima-data.csv")
+df = pd.read_csv("pima-data.csv")
 
 #Check structure of data (dimensions)
 print(df.shape)
